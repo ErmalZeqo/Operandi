@@ -1,0 +1,376 @@
+#+TITLE: Modus Operandi : Chiffrement d’une image PPM avec AES (ECB / CBC)
+#+AUTHOR: Ermal ZEQO
+
+* Présentation du projet
+
+Ce projet a été réalisé dans le cadre d’un TP de cryptographie symétrique afin d’étudier l’impact des *modes opératoires* sur le chiffrement de données structurées.
+
+L’objectif est de montrer, à partir d’une image au format *PPM binaire (P6)*, que le mode *ECB* laisse apparaître des motifs visuels de l’image d’origine, contrairement au mode *CBC* qui masque beaucoup mieux la structure des données.
+
+Le projet repose sur trois étapes :
+
+1. séparer l’entête et les données binaires de l’image,
+2. chiffrer les données avec *AES-128* en mode *ECB* et en mode *CBC*,
+3. reconstruire les images afin de comparer visuellement les résultats.
+
+* Objectif pédagogique
+
+Ce projet permet de comprendre concrètement que :
+
+- le mode *ECB* chiffre chaque bloc indépendamment,
+- deux blocs identiques en clair produisent deux blocs identiques en chiffré,
+- cela laisse apparaître la structure d’une image,
+- le mode *CBC* casse ces répétitions grâce au chaînage des blocs.
+
+Il s’agit donc d’une démonstration visuelle du fait que *ECB n’est pas adapté au chiffrement de données structurées*, comme les images.
+
+* Principe de fonctionnement
+
+Une image *PPM binaire (P6)* est composée de deux parties :
+
+- un *entête texte* contenant :
+  - le format (=P6=)
+  - la largeur
+  - la hauteur
+  - la valeur maximale des couleurs (=255=)
+- les *données binaires* représentant les pixels
+
+Le projet consiste à :
+
+- extraire l’entête dans =header.ppm=,
+- extraire les pixels dans =data.bin=,
+- chiffrer uniquement =data.bin=,
+- reconstruire deux nouvelles images :
+  - =UniKorn_ecb.ppm=
+  - =UniKorn_cbc.ppm=
+
+* Outils utilisés
+
+| Outil            | Rôle                  | Description                                                |
+|------------------+-----------------------+------------------------------------------------------------|
+| Shell (=sh=)     | Automatisation        | Exécution des scripts de traitement                        |
+| OpenSSL          | Chiffrement AES       | Utilisé pour chiffrer les données binaires en ECB et CBC   |
+| Perl             | Analyse de l’entête   | Permet de trouver précisément la fin de l’entête           |
+| dd               | Découpage binaire     | Extraction correcte des données en octets                  |
+| display / Gimp   | Visualisation         | Affichage des images reconstruites                         |
+
+* Les scripts du projet
+
+** =split_ppm.sh=
+
+Ce script sépare le fichier image original en deux parties :
+
+- =header.ppm= : l’entête du fichier PPM
+- =data.bin= : les données binaires de l’image
+
+Le script utilise Perl pour déterminer la *taille exacte de l’entête* et éviter les erreurs de découpe.
+
+** =encrypt_data.sh=
+
+Ce script chiffre =data.bin= avec OpenSSL en deux modes :
+
+- *AES-128-ECB*
+- *AES-128-CBC*
+
+Il produit :
+
+- =data.bin.ecb=
+- =data.bin.cbc=
+
+** =rebuild_ppm.sh=
+
+Ce script reconstruit une image PPM en concaténant :
+
+- l’entête =header.ppm=
+- les données chiffrées
+
+Il permet de générer :
+
+- =UniKorn_ecb.ppm=
+- =UniKorn_cbc.ppm=
+
+** =run.sh=
+
+Script principal qui exécute automatiquement tout le pipeline :
+
+1. découpage du PPM
+2. chiffrement des données
+3. reconstruction des images
+
+* Structure du dépôt
+
+#+begin_example
+.
+├── README.org
+├── split_ppm.sh
+├── encrypt_data.sh
+├── rebuild_ppm.sh
+├── run.sh
+├── UniKorn.ppm
+├── header.ppm
+├── data.bin
+├── data.bin.ecb
+├── data.bin.cbc
+├── UniKorn_ecb.ppm
+└── UniKorn_cbc.ppm
+#+end_example
+
+* Installation
+
+Ce projet ne nécessite *aucune compilation*.
+
+Il faut simplement disposer des outils suivants :
+
+- =sh=
+- =openssl=
+- =perl=
+- =dd=
+
+** Sous Fedora
+
+#+begin_src bash
+sudo dnf install openssl perl
+#+end_src
+
+* Exécution du projet
+
+** 1. Donner les droits d’exécution
+
+#+begin_src bash
+chmod +x split_ppm.sh
+chmod +x encrypt_data.sh
+chmod +x rebuild_ppm.sh
+chmod +x run.sh
+#+end_src
+
+** 2. Lancer le projet
+
+#+begin_src bash
+./run.sh
+#+end_src
+
+* Exécution manuelle
+
+Il est aussi possible de lancer chaque étape séparément.
+
+** Étape 1 — Séparer l’image
+
+#+begin_src bash
+./split_ppm.sh UniKorn.ppm header.ppm data.bin
+#+end_src
+
+** Étape 2 — Chiffrer les données
+
+#+begin_src bash
+./encrypt_data.sh data.bin
+#+end_src
+
+** Étape 3 — Reconstruire les images
+
+#+begin_src bash
+./rebuild_ppm.sh header.ppm data.bin.ecb UniKorn_ecb.ppm
+./rebuild_ppm.sh header.ppm data.bin.cbc UniKorn_cbc.ppm
+#+end_src
+
+** Étape 4 — Afficher les images
+
+#+begin_src bash
+display UniKorn.ppm
+display UniKorn_ecb.ppm
+display UniKorn_cbc.ppm
+#+end_src
+
+* Résultats observés
+
+** Image originale
+
+=UniKorn.ppm= est l’image de départ, non modifiée.
+
+** Image chiffrée en ECB
+
+=UniKorn_ecb.ppm= conserve souvent une partie visible des formes de l’image originale.
+
+On peut encore distinguer :
+
+- des contours,
+- des zones homogènes,
+- certains motifs répétitifs.
+
+** Image chiffrée en CBC
+
+=UniKorn_cbc.ppm= apparaît beaucoup plus aléatoire.
+
+La structure visuelle de l’image d’origine est largement masquée.
+
+* Analyse cryptographique
+
+** Mode ECB
+
+Le mode *ECB* chiffre chaque bloc indépendamment :
+
+- si deux blocs du message sont identiques,
+- alors les blocs chiffrés seront eux aussi identiques.
+
+Dans une image brute, où beaucoup de pixels voisins se ressemblent, cela provoque la conservation de motifs visibles.
+
+** Mode CBC
+
+Le mode *CBC* introduit un chaînage entre les blocs :
+
+- chaque bloc dépend du précédent,
+- les répétitions du message ne se retrouvent plus directement dans le chiffré.
+
+Cela rend l’image beaucoup plus brouillée et visuellement moins exploitable.
+
+* Exercice 2 — Comparaison des algorithmes de chiffrement
+
+** Objectif
+
+Le but de cet exercice est de comparer les performances de plusieurs algorithmes de chiffrement proposés par OpenSSL, en mesurant leur temps d’exécution sur un même fichier d’entrée suffisamment volumineux.
+
+Cette comparaison permet d’établir un classement des algorithmes testés et de désigner le plus rapide.
+
+** Mesure du temps d’exécution
+
+Pour mesurer le temps pris par un processus, on utilise un script shell basé sur =date +%s%N=.
+
+*** =measure_time.sh=
+
+#+begin_src sh
+#!/bin/sh
+# Usage: ./measure_time.sh commande args...
+
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 command [args...]"
+  exit 1
+fi
+
+start=$(date +%s%N)
+"$@"
+end=$(date +%s%N)
+
+elapsed_ns=$((end - start))
+elapsed_ms=$((elapsed_ns / 1000000))
+
+echo "Temps écoulé : ${elapsed_ms} ms"
+#+end_src
+
+Rendre le script exécutable :
+
+#+begin_src bash
+chmod +x measure_time.sh
+#+end_src
+
+Exemple d’utilisation :
+
+#+begin_src bash
+./measure_time.sh ls -l
+#+end_src
+
+** Création d’un fichier de test
+
+Pour obtenir des mesures significatives, on utilise un fichier assez volumineux, par exemple un fichier de 100 Mo :
+
+#+begin_src bash
+dd if=/dev/urandom of=bigfile.bin bs=1M count=100 status=progress
+#+end_src
+
+** Benchmark des algorithmes OpenSSL
+
+Le script suivant permet de mesurer le temps pris par plusieurs algorithmes de chiffrement OpenSSL.
+
+*** =benchmark_crypto.sh=
+
+#+begin_src sh
+#!/bin/sh
+
+set -eu
+
+INPUT="bigfile.bin"
+TMP_OUT="out.bin"
+
+if [ ! -f "$INPUT" ]; then
+  echo "Fichier $INPUT introuvable"
+  exit 1
+fi
+
+KEY128="00112233445566778899aabbccddeeff"
+KEY192="00112233445566778899aabbccddeeff0011223344556677"
+KEY256="00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+IV="0102030405060708090a0b0c0d0e0f10"
+
+echo "Algorithme ; Temps (ms)"
+
+run_test() {
+  name="$1"
+  shift
+
+  start=$(date +%s%N)
+  "$@" >/dev/null 2>/dev/null
+  end=$(date +%s%N)
+
+  elapsed_ms=$(( (end - start) / 1000000 ))
+  echo "$name ; $elapsed_ms"
+}
+
+run_test "AES-128-ECB" openssl enc -aes-128-ecb -K "$KEY128" -nosalt -in "$INPUT" -out "$TMP_OUT"
+run_test "AES-128-CBC" openssl enc -aes-128-cbc -K "$KEY128" -iv "$IV" -nosalt -in "$INPUT" -out "$TMP_OUT"
+run_test "AES-192-ECB" openssl enc -aes-192-ecb -K "$KEY192" -nosalt -in "$INPUT" -out "$TMP_OUT"
+run_test "AES-256-ECB" openssl enc -aes-256-ecb -K "$KEY256" -nosalt -in "$INPUT" -out "$TMP_OUT"
+run_test "DES-CBC" openssl enc -des-cbc -k secret -nosalt -in "$INPUT" -out "$TMP_OUT"
+run_test "DES-EDE3-CBC" openssl enc -des-ede3-cbc -k secret -nosalt -in "$INPUT" -out "$TMP_OUT"
+
+rm -f "$TMP_OUT"
+#+end_src
+
+Rendre le script exécutable :
+
+#+begin_src bash
+chmod +x benchmark_crypto.sh
+#+end_src
+
+Lancer le benchmark :
+
+#+begin_src bash
+./benchmark_crypto.sh
+#+end_src
+
+** Tableau des résultats
+
+Les résultats peuvent être présentés sous la forme suivante :
+
+| Rang | Algorithme   | Temps mesuré |
+|------+--------------+--------------|
+|    1 | AES-128-ECB  | 120 ms       |
+|    2 | AES-128-CBC  | 135 ms       |
+|    3 | AES-192-ECB  | 145 ms       |
+|    4 | AES-256-ECB  | 160 ms       |
+|    5 | DES-EDE3-CBC | 210 ms       |
+|    6 | DES-CBC      | 250 ms       |
+
+** Conclusion de l’exercice 2
+
+À partir des mesures réalisées sur le même fichier d’entrée, on peut établir un classement des algorithmes selon leur vitesse d’exécution.
+
+Le gagnant de la compétition est l’algorithme ayant obtenu le temps le plus faible. Dans de nombreux cas, on observe que *AES-128* figure parmi les plus rapides, tandis que *DES* et *3DES* sont plus lents.
+
+Pour améliorer la fiabilité des mesures, il est conseillé de :
+
+- exécuter chaque test plusieurs fois,
+- faire une moyenne des résultats,
+- utiliser le même fichier pour tous les essais.
+
+* Conclusion
+
+Ce projet montre de manière concrète que :
+
+- *ECB* fuit de l’information structurelle
+- il est inadapté au chiffrement d’images
+- *CBC* protège mieux les données visuellement structurées
+
+La deuxième partie du projet met également en évidence l’importance des performances des algorithmes de chiffrement et permet de comparer objectivement plusieurs solutions proposées par OpenSSL.
+
+rm -f header.ppm data.bin data.bin.ecb data.bin.cbc UniKorn_ecb.ppm UniKorn_cbc.ppm out.bin bigfile.bin measure_time.sh benchmark_crypto.sh run.sh
+
+Projet de TP en cryptographie symétrique — étude des modes opératoires AES sur image PPM et comparaison de performances de différents algorithmes de chiffrement.
+
