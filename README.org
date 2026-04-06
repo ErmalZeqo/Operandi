@@ -126,7 +126,7 @@ Il faut simplement disposer des outils suivants :
 - =perl=
 - =dd=
 
-** Sous Fedora
+** Dans terminal
 
 #+begin_src bash
 sudo dnf install openssl perl
