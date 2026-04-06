@@ -370,7 +370,7 @@ Ce projet montre de manière concrète que :
 
 La deuxième partie du projet met également en évidence l’importance des performances des algorithmes de chiffrement et permet de comparer objectivement plusieurs solutions proposées par OpenSSL.
 
-rm -f header.ppm data.bin data.bin.ecb data.bin.cbc UniKorn_ecb.ppm UniKorn_cbc.ppm out.bin bigfile.bin measure_time.sh benchmark_crypto.sh run.sh
+rm -f header.ppm data.bin data.bin.ecb data.bin.cbc UniKorn_ecb.ppm UniKorn_cbc.ppm out.bin bigfile.bin 
 
 Projet de TP en cryptographie symétrique — étude des modes opératoires AES sur image PPM et comparaison de performances de différents algorithmes de chiffrement.
 
